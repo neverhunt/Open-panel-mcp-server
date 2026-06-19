@@ -301,6 +301,9 @@ app.get("/", (req, res) => {
 });
 
 app.get("/sse", async (req, res) => {
+  if (sseTransport) {
+    try { await server.close(); } catch (err) {}
+  }
   sseTransport = new SSEServerTransport("/messages", res);
   await server.connect(sseTransport);
 });

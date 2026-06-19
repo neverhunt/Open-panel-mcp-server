@@ -3,7 +3,7 @@ services:
   openpanel-mcp:
     build: .
     ports:
-      - "3000:3000"
+      - "3008:3000"
     environment:
       - OPENPANEL_CLIENT_ID=${OPENPANEL_CLIENT_ID}
       - OPENPANEL_CLIENT_SECRET=${OPENPANEL_CLIENT_SECRET}
