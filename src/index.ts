@@ -50,11 +50,13 @@ async function opRequest(
 
 /** Tool 1: Top landing pages with visitor counts */
 async function getLandingPages(args: {
+  project_id?: string;
   start_date?: string;
   end_date?: string;
   limit?: number;
 }) {
   const data = await opRequest("/export/events", {
+    projectId: args.project_id,
     startDate: args.start_date,
     endDate: args.end_date,
     limit: args.limit ?? 100,
@@ -67,12 +69,14 @@ async function getLandingPages(args: {
 
 /** Tool 2: Events recorded on a specific page path */
 async function getPageEvents(args: {
+  project_id?: string;
   path: string;
   start_date?: string;
   end_date?: string;
   limit?: number;
 }) {
   const data = await opRequest("/export/events", {
+    projectId: args.project_id,
     startDate: args.start_date,
     endDate: args.end_date,
     limit: args.limit ?? 100,
@@ -84,10 +88,12 @@ async function getPageEvents(args: {
 
 /** Tool 3: All distinct event names being tracked */
 async function getEventsList(args: {
+  project_id?: string;
   start_date?: string;
   end_date?: string;
 }) {
   const data = await opRequest("/export/events", {
+    projectId: args.project_id,
     startDate: args.start_date,
     endDate: args.end_date,
     limit: 1000,
@@ -113,6 +119,10 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
+        project_id: {
+          type: "string",
+          description: "Optional OpenPanel project ID. Required if using Root credentials to query a specific project.",
+        },
         start_date: {
           type: "string",
           description: "Start date in YYYY-MM-DD format (e.g. 2024-01-01)",
@@ -136,6 +146,10 @@ const TOOLS = [
       type: "object",
       required: ["path"],
       properties: {
+        project_id: {
+          type: "string",
+          description: "Optional OpenPanel project ID.",
+        },
         path: {
           type: "string",
           description: "The page path to filter by, e.g. /pricing or /signup",
@@ -162,6 +176,10 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
+        project_id: {
+          type: "string",
+          description: "Optional OpenPanel project ID.",
+        },
         start_date: {
           type: "string",
           description: "Start date in YYYY-MM-DD format",
@@ -192,11 +210,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     if (name === "get_landing_pages") {
       result = await getLandingPages(
-        args as { start_date?: string; end_date?: string; limit?: number }
+        args as { project_id?: string; start_date?: string; end_date?: string; limit?: number }
       );
     } else if (name === "get_page_events") {
       result = await getPageEvents(
         args as {
+          project_id?: string;
           path: string;
           start_date?: string;
           end_date?: string;
@@ -205,7 +224,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       );
     } else if (name === "get_events_list") {
       result = await getEventsList(
-        args as { start_date?: string; end_date?: string }
+        args as { project_id?: string; start_date?: string; end_date?: string }
       );
     } else {
       throw new Error(`Unknown tool: ${name}`);
