@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  openpanel-mcp:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - OPENPANEL_CLIENT_ID=${OPENPANEL_CLIENT_ID}
+      - OPENPANEL_CLIENT_SECRET=${OPENPANEL_CLIENT_SECRET}
+      - OPENPANEL_BASE_URL=${OPENPANEL_BASE_URL:-https://api.openpanel.intaqt.com}
+    restart: unless-stopped

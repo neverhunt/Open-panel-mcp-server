@@ -1,5 +1,5 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -227,8 +227,54 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 });
 
+import express from "express";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
-console.error("OpenPanel MCP server running (stdio)");
+const app = express();
+const port = process.env.PORT || 3000;
+
+let sseTransport: SSEServerTransport | null = null;
+
+// Default landing page
+app.get("/", (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>OpenPanel MCP Server</title>
+        <style>
+          body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+          h1 { color: #333; }
+          .status { padding: 10px; background: #e6f4ea; color: #1e8e3e; border-radius: 4px; display: inline-block; }
+          .endpoint { background: #f1f3f4; padding: 10px; border-radius: 4px; font-family: monospace; }
+        </style>
+      </head>
+      <body>
+        <h1>OpenPanel MCP Server</h1>
+        <div class="status">✅ Server is running</div>
+        <p>This is a Model Context Protocol (MCP) server for OpenPanel Analytics.</p>
+        <h2>Connection Endpoints</h2>
+        <p>SSE Transport URL: <span class="endpoint">/sse</span></p>
+        <p>Message POST URL: <span class="endpoint">/messages</span></p>
+      </body>
+    </html>
+  `);
+});
+
+app.get("/sse", async (req, res) => {
+  sseTransport = new SSEServerTransport("/messages", res);
+  await server.connect(sseTransport);
+});
+
+app.post("/messages", async (req, res) => {
+  if (sseTransport) {
+    await sseTransport.handlePostMessage(req, res);
+  } else {
+    res.status(503).send("SSE transport not initialized. Connect to /sse first.");
+  }
+});
+
+app.listen(port, () => {
+  console.log(\`OpenPanel MCP server listening on port \${port}\`);
+});
