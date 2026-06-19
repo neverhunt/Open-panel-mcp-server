@@ -301,11 +301,13 @@ app.get("/", (req, res) => {
 });
 
 app.get("/sse", async (req, res) => {
-  if (sseTransport) {
-    try { await server.close(); } catch (err) {}
-  }
+  console.log("New SSE connection...");
   sseTransport = new SSEServerTransport("/messages", res);
   await server.connect(sseTransport);
+  res.on('close', () => {
+    console.log("Client disconnected. Exiting process to reset state...");
+    process.exit(0);
+  });
 });
 
 app.post("/messages", async (req, res) => {
