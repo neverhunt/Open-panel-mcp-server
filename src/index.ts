@@ -23,7 +23,9 @@ if (!CLIENT_ID || !CLIENT_SECRET || !BASE_URL) {
 
 async function opRequest(
   path: string,
-  params: Record<string, string | number | undefined> = {}
+  params: Record<string, string | number | undefined> = {},
+  clientId?: string,
+  clientSecret?: string
 ): Promise<unknown> {
   const url = new URL(`${BASE_URL}${path}`);
   for (const [key, val] of Object.entries(params)) {
@@ -32,11 +34,18 @@ async function opRequest(
   
   console.log(`[DEBUG] OpenPanel API Request to: ${url.toString()}`);
 
+  const activeClientId = clientId || CLIENT_ID;
+  const activeClientSecret = clientSecret || CLIENT_SECRET;
+
+  if (!activeClientId || !activeClientSecret) {
+    throw new Error("Missing OpenPanel Client ID or Secret for this request.");
+  }
+
   try {
     const res = await fetch(url.toString(), {
       headers: {
-        "openpanel-client-id": CLIENT_ID,
-        "openpanel-client-secret": CLIENT_SECRET,
+        "openpanel-client-id": activeClientId,
+        "openpanel-client-secret": activeClientSecret,
         "Content-Type": "application/json",
       },
     });
@@ -63,6 +72,8 @@ async function getLandingPages(args: {
   end_date?: string;
   limit?: number;
   filters?: string;
+  client_id?: string;
+  client_secret?: string;
 }) {
   const data = await opRequest("/export/events", {
     projectId: args.project_id,
@@ -72,7 +83,7 @@ async function getLandingPages(args: {
     filters: args.filters,
     // filter to page views only
     event: "screen_view",
-  });
+  }, args.client_id, args.client_secret);
 
   return data;
 }
@@ -85,6 +96,8 @@ async function getPageEvents(args: {
   end_date?: string;
   limit?: number;
   filters?: string;
+  client_id?: string;
+  client_secret?: string;
 }) {
   const data = await opRequest("/export/events", {
     projectId: args.project_id,
@@ -93,7 +106,7 @@ async function getPageEvents(args: {
     limit: args.limit ?? 100,
     path: args.path,
     filters: args.filters,
-  });
+  }, args.client_id, args.client_secret);
 
   return data;
 }
@@ -104,6 +117,8 @@ async function getEventsList(args: {
   start_date?: string;
   end_date?: string;
   filters?: string;
+  client_id?: string;
+  client_secret?: string;
 }) {
   const data = await opRequest("/export/events", {
     projectId: args.project_id,
@@ -111,7 +126,7 @@ async function getEventsList(args: {
     endDate: args.end_date,
     filters: args.filters,
     limit: 1000,
-  });
+  }, args.client_id, args.client_secret);
 
   // Extract unique event names from the response
   const events = (data as { data?: Array<{ name?: string }> }).data ?? [];
@@ -125,95 +140,47 @@ async function getEventsList(args: {
 
 // ── Tool definitions ──────────────────────────────────────────────────────────
 
+const commonProperties = {
+  project_id: { type: "string" },
+  start_date: { type: "string" },
+  end_date: { type: "string" },
+  filters: { type: "string" },
+  client_id: { type: "string", description: "Dynamic OpenPanel Client ID for multi-project support" },
+  client_secret: { type: "string", description: "Dynamic OpenPanel Client Secret for multi-project support" },
+};
+
 const TOOLS = [
   {
     name: "get_landing_pages",
-    description:
-      "Get the top pages that users landed on, along with visitor/event counts. Use this to see which pages are receiving traffic.",
+    description: "Get the top pages that users landed on.",
     inputSchema: {
       type: "object",
       properties: {
-        project_id: {
-          type: "string",
-          description: "Optional OpenPanel project ID. Required if using Root credentials to query a specific project.",
-        },
-        start_date: {
-          type: "string",
-          description: "Start date in YYYY-MM-DD format (e.g. 2024-01-01)",
-        },
-        end_date: {
-          type: "string",
-          description: "End date in YYYY-MM-DD format (e.g. 2024-01-31)",
-        },
-        limit: {
-          type: "number",
-          description: "Max number of records to return. Default: 100",
-        },
-        filters: {
-          type: "string",
-          description: "JSON array string of filters (e.g. '[{\"property\":\"country\",\"operator\":\"is_not\",\"value\":\"IN\"}]')",
-        },
+        ...commonProperties,
+        limit: { type: "number" },
       },
     },
   },
   {
     name: "get_page_events",
-    description:
-      "Get all events recorded on a specific page path. Use this to see what actions users are taking on a particular page.",
+    description: "Get all events recorded on a specific page path.",
     inputSchema: {
       type: "object",
       required: ["path"],
       properties: {
-        project_id: {
-          type: "string",
-          description: "Optional OpenPanel project ID.",
-        },
-        path: {
-          type: "string",
-          description: "The page path to filter by, e.g. /pricing or /signup",
-        },
-        start_date: {
-          type: "string",
-          description: "Start date in YYYY-MM-DD format",
-        },
-        end_date: {
-          type: "string",
-          description: "End date in YYYY-MM-DD format",
-        },
-        limit: {
-          type: "number",
-          description: "Max number of records to return. Default: 100",
-        },
-        filters: {
-          type: "string",
-          description: "JSON array string of filters",
-        },
+        ...commonProperties,
+        path: { type: "string" },
+        limit: { type: "number" },
       },
     },
   },
   {
     name: "get_events_list",
-    description:
-      "Get a list of all distinct event names being tracked across your site. Use this to discover what events are available before querying a specific page.",
+    description: "Get a list of all distinct event names being tracked.",
     inputSchema: {
       type: "object",
       properties: {
-        project_id: {
-          type: "string",
-          description: "Optional OpenPanel project ID.",
-        },
-        start_date: {
-          type: "string",
-          description: "Start date in YYYY-MM-DD format",
-        },
-        end_date: {
-          type: "string",
-          description: "End date in YYYY-MM-DD format",
-        },
-        filters: {
-          type: "string",
-          description: "JSON array string of filters",
-        },
+        ...commonProperties,
       },
     },
   },
@@ -241,24 +208,11 @@ function createServerInstance(): Server {
       let result: unknown;
 
       if (name === "get_landing_pages") {
-        result = await getLandingPages(
-          args as { project_id?: string; start_date?: string; end_date?: string; limit?: number; filters?: string }
-        );
+        result = await getLandingPages(args as any);
       } else if (name === "get_page_events") {
-        result = await getPageEvents(
-          args as {
-            project_id?: string;
-            path: string;
-            start_date?: string;
-            end_date?: string;
-            limit?: number;
-            filters?: string;
-          }
-        );
+        result = await getPageEvents(args as any);
       } else if (name === "get_events_list") {
-        result = await getEventsList(
-          args as { project_id?: string; start_date?: string; end_date?: string; filters?: string }
-        );
+        result = await getEventsList(args as any);
       } else {
         throw new Error(`Unknown tool: ${name}`);
       }
