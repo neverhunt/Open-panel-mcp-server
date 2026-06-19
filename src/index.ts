@@ -54,12 +54,14 @@ async function getLandingPages(args: {
   start_date?: string;
   end_date?: string;
   limit?: number;
+  filters?: string;
 }) {
   const data = await opRequest("/export/events", {
     projectId: args.project_id,
     startDate: args.start_date,
     endDate: args.end_date,
     limit: args.limit ?? 100,
+    filters: args.filters,
     // filter to page views only
     event: "screen_view",
   });
@@ -74,6 +76,7 @@ async function getPageEvents(args: {
   start_date?: string;
   end_date?: string;
   limit?: number;
+  filters?: string;
 }) {
   const data = await opRequest("/export/events", {
     projectId: args.project_id,
@@ -81,6 +84,7 @@ async function getPageEvents(args: {
     endDate: args.end_date,
     limit: args.limit ?? 100,
     path: args.path,
+    filters: args.filters,
   });
 
   return data;
@@ -91,11 +95,13 @@ async function getEventsList(args: {
   project_id?: string;
   start_date?: string;
   end_date?: string;
+  filters?: string;
 }) {
   const data = await opRequest("/export/events", {
     projectId: args.project_id,
     startDate: args.start_date,
     endDate: args.end_date,
+    filters: args.filters,
     limit: 1000,
   });
 
@@ -135,6 +141,10 @@ const TOOLS = [
           type: "number",
           description: "Max number of records to return. Default: 100",
         },
+        filters: {
+          type: "string",
+          description: "JSON array string of filters (e.g. '[{\"property\":\"country\",\"operator\":\"is_not\",\"value\":\"IN\"}]')",
+        },
       },
     },
   },
@@ -166,6 +176,10 @@ const TOOLS = [
           type: "number",
           description: "Max number of records to return. Default: 100",
         },
+        filters: {
+          type: "string",
+          description: "JSON array string of filters",
+        },
       },
     },
   },
@@ -187,6 +201,10 @@ const TOOLS = [
         end_date: {
           type: "string",
           description: "End date in YYYY-MM-DD format",
+        },
+        filters: {
+          type: "string",
+          description: "JSON array string of filters",
         },
       },
     },
@@ -210,7 +228,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     if (name === "get_landing_pages") {
       result = await getLandingPages(
-        args as { project_id?: string; start_date?: string; end_date?: string; limit?: number }
+        args as { project_id?: string; start_date?: string; end_date?: string; limit?: number; filters?: string }
       );
     } else if (name === "get_page_events") {
       result = await getPageEvents(
@@ -220,11 +238,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           start_date?: string;
           end_date?: string;
           limit?: number;
+          filters?: string;
         }
       );
     } else if (name === "get_events_list") {
       result = await getEventsList(
-        args as { project_id?: string; start_date?: string; end_date?: string }
+        args as { project_id?: string; start_date?: string; end_date?: string; filters?: string }
       );
     } else {
       throw new Error(`Unknown tool: ${name}`);
