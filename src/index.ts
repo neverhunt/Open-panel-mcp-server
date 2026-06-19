@@ -276,5 +276,5 @@ app.post("/messages", async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(\`OpenPanel MCP server listening on port \${port}\`);
+  console.log(`OpenPanel MCP server listening on port ${port}`);
 });
